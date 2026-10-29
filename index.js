@@ -41,7 +41,7 @@ const readP = () => {
 	P.mult = +$("mult").value || 4;
 };
 
-function lg(m) {
+function addLog(m) {
 	const d = document.createElement("div");
 	d.textContent = (S ? S.t.toFixed(0).padStart(3, " ") + "s " : "") + m;
 	$("log").prepend(d);
@@ -205,7 +205,7 @@ function randCall() {
 		drop = c[Math.floor(rand() * c.length)];
 	}
 	addCall(S, f, d, drop, false);
-	lg(`호출 ${f + 1}층${d > 0 ? "▲" : "▼"}`);
+	addLog(`호출 ${f + 1}층${d > 0 ? "▲" : "▼"}`);
 }
 
 function dropFor(f, d) {
@@ -252,7 +252,7 @@ function scenario() {
 	}
 	S.occ = Math.floor(rand() * 4);
 	tx("GO " + (f + 1));
-	lg(
+	addLog(
 		`새 상황: 엘리베이터 ${f + 1}층 ${d > 0 ? "상승" : "하강"} 중 · 호출 ${S.calls.map((c) => c.f + 1 + (c.d > 0 ? "▲" : "▼")).join(" ") || "없음"}`,
 	);
 }
@@ -262,10 +262,10 @@ function toggleCall(f, d) {
 	if (i >= 0) {
 		if (S.calls[i].pax.some((p) => p.user)) return;
 		S.calls.splice(i, 1);
-		lg(`호출 취소 ${f + 1}층${d > 0 ? "▲" : "▼"}`);
+		addLog(`호출 취소 ${f + 1}층${d > 0 ? "▲" : "▼"}`);
 	} else {
 		addCall(S, f, d, 0, false);
-		lg(`호출 ${f + 1}층${d > 0 ? "▲" : "▼"}`);
+		addLog(`호출 ${f + 1}층${d > 0 ? "▲" : "▼"}`);
 	}
 }
 
@@ -278,7 +278,7 @@ function moveCar(f) {
 	S.dir = f == 0 ? 1 : f == 4 ? -1 : S.dir || 1;
 	lastGo = -1;
 	tx("GO " + (f + 1));
-	lg(`엘리베이터 ${f + 1}층으로 이동`);
+	addLog(`엘리베이터 ${f + 1}층으로 이동`);
 }
 
 function flipDir() {
@@ -287,19 +287,19 @@ function flipDir() {
 		nd = -S.dir;
 	if ((f == 0 && nd < 0) || (f == 4 && nd > 0)) return;
 	S.dir = nd;
-	lg(`방향 ${nd > 0 ? "상승" : "하강"}으로 변경`);
+	addLog(`방향 ${nd > 0 ? "상승" : "하강"}으로 변경`);
 }
 
 function evLive(k, f, x) {
 	if (k == "drop") {
-		lg(`${f + 1}층 하차${x.user ? " (사용자)" : ""}`);
+		addLog(`${f + 1}층 하차${x.user ? " (사용자)" : ""}`);
 		if (x.user && race && !race.ed) {
 			race.ed = true;
 			race.tE = S.t - race.t0;
 			fin();
 		}
 	} else
-		lg(
+		addLog(
 			`${f + 1}층 탑승${x.user ? " (사용자) → " + (x.drop + 1) + "층" : " (가상 탑승자, 하차 안 함)"}`,
 		);
 }
@@ -337,7 +337,7 @@ function init() {
 		"출발·도착 층을 고르고 실행하세요. 예상은 이후 새 호출이 없다고 가정한 값이에요.";
 	lastGo = -1;
 	lastMask = -1;
-	lg("시작");
+	addLog("시작");
 	scenario();
 }
 
@@ -391,28 +391,36 @@ $("portConnector").onclick = async () => {
 	}
 
 	try {
+		// 포트를 연결할지 팝업으로 설정
 		const p = await navigator.serial.requestPort();
 		await p.open({ baudRate: 115200 });
-		const enc = new TextEncoderStream();
 
+		const enc = new TextEncoderStream();
 		enc.readable.pipeTo(p.writable);
 		serial = enc.writable.getWriter();
 
+		// 연결이 되면 portConnector에서 연결이 완료됨을 직접 표시
 		$("portConnector").textContent = "모형 연결됨";
 		$("portConnector").classList.add("ok");
 		$("portConnectStatus").textContent = "연결됨 · 명령 전송 중";
-		lg("시리얼 연결");
+		addLog("시리얼 연결");
 
 		const rd = p.readable.pipeThrough(new TextDecoderStream()).getReader();
-		let buf = "";
+		let buf = ""; // 아두이노로부터 받은 데이터를 전송 받은 buffer
+
+		// 이후 '\n'에 맞게 buffer를 변경하며 받은 데이터를 log에 출력
 		(async () => {
 			for (;;) {
 				const { value, done } = await rd.read();
+
 				if (done) break;
+
 				buf += value;
+
 				let i;
+
 				while ((i = buf.indexOf("\n")) >= 0) {
-					lg("← " + buf.slice(0, i).trim());
+					addLog("← " + buf.slice(0, i).trim());
 					buf = buf.slice(i + 1);
 				}
 			}
@@ -426,7 +434,7 @@ $("portConnector").onclick = async () => {
 
 $("home").onclick = () => {
 	tx("HOME");
-	lg("→ HOME");
+	addLog("→ HOME");
 };
 
 // ---- 입력 ----
@@ -489,7 +497,7 @@ $("go").onclick = () => {
 		St,
 	};
 	tx(`STAIR ${from + 1} ${to + 1} ${Math.round((St * 1000) / P.mult)}`);
-	lg(`경주 시작 ${from + 1}층→${to + 1}층`);
+	addLog(`경주 시작 ${from + 1}층→${to + 1}층`);
 };
 
 $("auto").onchange = () => {
