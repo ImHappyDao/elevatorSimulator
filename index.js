@@ -384,21 +384,29 @@ function sync() {
 	}
 }
 
-$("con").onclick = async () => {
+// 포트와 연결하는 버튼(portConnector) 클릭 시 포트 연결 요청
+// 연결 상태를 portConnectStatus에 출력(연결 중, 연결 실패, 미지원)
+$("portConnector").onclick = async () => {
+	// 브라우저가 serial을 지원하지 않는 경우
 	if (!("serial" in navigator)) {
-		$("cst").textContent = "이 브라우저는 Web Serial 미지원 (Chrome/Edge 필요)";
+		$("portConnectStatus").textContent =
+			"이 브라우저는 Web Serial 미지원 (Chrome/Edge 필요)";
 		return;
 	}
+
 	try {
 		const p = await navigator.serial.requestPort();
 		await p.open({ baudRate: 115200 });
 		const enc = new TextEncoderStream();
+
 		enc.readable.pipeTo(p.writable);
 		serial = enc.writable.getWriter();
-		$("con").textContent = "모형 연결됨";
-		$("con").classList.add("ok");
-		$("cst").textContent = "연결됨 · 명령 전송 중";
+
+		$("portConnector").textContent = "모형 연결됨";
+		$("portConnector").classList.add("ok");
+		$("portConnectStatus").textContent = "연결됨 · 명령 전송 중";
 		lg("시리얼 연결");
+
 		const rd = p.readable.pipeThrough(new TextDecoderStream()).getReader();
 		let buf = "";
 		(async () => {
@@ -414,7 +422,8 @@ $("con").onclick = async () => {
 			}
 		})();
 	} catch (e) {
-		$("cst").textContent =
+		// 연결 실패 시 오류 메시지 출력
+		$("portConnectStatus").textContent =
 			"연결 실패: " + (e.message || e) + " (미리보기 안에서는 막힐 수 있어요)";
 	}
 };
