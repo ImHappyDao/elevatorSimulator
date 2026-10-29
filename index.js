@@ -48,10 +48,6 @@ function lg(m) {
 	while ($("log").children.length > 80) $("log").lastChild.remove();
 }
 
-$("resetLog").onclick = () => {
-	$("log").innerHTML = "";
-};
-
 // ---- 운행 엔진 (층 0~4) ----
 const tg = (s) => [...s.calls.map((c) => c.f), ...s.riders.map((r) => r.dest)];
 
@@ -309,7 +305,7 @@ function evLive(k, f, x) {
 }
 
 function fin() {
-	const m = $("meas");
+	const m = $("measureResult");
 	if (!m || !race) return;
 	if (race.ed && race.sd)
 		m.textContent =
@@ -478,7 +474,7 @@ $("go").onclick = () => {
 				: "같은 시간";
 	$("res").className = "";
 	$("res").innerHTML =
-		`<div class="tiles"><div class="tile ${E < St ? "win" : ""}"><span>엘리베이터 예상</span><b>${E.toFixed(1)}</b>초</div><div class="tile ${St < E ? "win" : ""}"><span>계단 예상</span><b>${St.toFixed(1)}</b>초</div></div><div class="verdict">${w} (${Math.abs(E - St).toFixed(1)}초 차이)</div><div class="mut" style="text-align:center">가상 탑승자는 하차하지 않는다고 가정한 값이에요</div><div class="bar"><span>엘리베이터</span><div><i id="be"></i></div><em id="te">0.0초</em></div><div class="bar"><span>계단</span><div><i id="bs"></i></div><em id="ts">0.0초</em></div><div id="meas" class="mut" style="text-align:center;margin-top:6px"></div>`;
+		`<div class="tiles"><div class="tile ${E < St ? "win" : ""}"><span>엘리베이터 예상</span><b>${E.toFixed(1)}</b>초</div><div class="tile ${St < E ? "win" : ""}"><span>계단 예상</span><b>${St.toFixed(1)}</b>초</div></div><div class="verdict">${w} (${Math.abs(E - St).toFixed(1)}초 차이)</div><div class="mut" style="text-align:center">가상 탑승자는 하차하지 않는다고 가정한 값이에요</div><div class="bar"><span>엘리베이터</span><div><i id="be"></i></div><em id="te">0.0초</em></div><div class="bar"><span>계단</span><div><i id="bs"></i></div><em id="ts">0.0초</em></div><div id="measureResult" class="mut" style="text-align:center;margin-top:6px"></div>`;
 	addCall(S, from, to > from ? 1 : -1, to, true);
 	running = true;
 	race = {
