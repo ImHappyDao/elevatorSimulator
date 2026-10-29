@@ -63,11 +63,14 @@ h2 {
 }
 .groupRow {
 	display: flex;
+	flex-wrap: wrap;
 	gap: 10px;
 }
 .cardGroup {
 	display: inline-block;
-	width: 50%;
+	width: 48%;
+	min-width: 250px;
+	flex-grow: 1;
 }
 .card {
 	background: var(--card);
