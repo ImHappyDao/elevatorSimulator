@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+	<head>
+		<meta charset="utf-8" />
+		<meta
+			name="viewport"
+			content="width=device-width, initial-scale=1, viewport-fit=cover"
+		/>
+		<title>엘리베이터 vs 계단 · 보조 화면</title>
+		<link rel="stylesheet" href="./index.css" />
+	</head>
+	<body>
+		<div class="app">
+			<header>
+				<h1>엘리베이터 vs 계단</h1>
+				<button id="con" class="pill">모형 미연결</button>
+			</header>
+			<div class="groupRow">
+				<div class="cardGroup">
+					<div class="card">
+						<div class="strip" id="strip"></div>
+						<div id="stat"></div>
+						<div class="mut" style="margin-top: 6px">
+							▲▼를 누르면 호출 추가·취소 · (시간 정지 중) 층 번호를 누르면
+							엘리베이터 이동, 카를 누르면 방향 전환
+						</div>
+					</div>
+					<div class="card">
+						<h2>이동 비교</h2>
+						<div class="lbl">출발 층</div>
+						<div class="seg" id="sf"></div>
+						<div class="lbl">도착 층</div>
+						<div class="seg" id="sd"></div>
+						<button class="go" id="go">비교 + 출발</button>
+						<div id="res" class="mut" style="margin-top: 10px">
+							출발·도착 층을 고르고 실행하세요. 예상은 이후 새 호출이 없다고
+							가정한 값이에요.
+						</div>
+					</div>
+				</div>
+				<div class="cardGroup">
+					<div class="card">
+						<h2>랜덤 호출</h2>
+						<div class="row">
+							<label class="sw">
+								<input type="checkbox" id="auto" style="width: auto" />
+								자동 호출
+							</label>
+							<button class="s" id="scn">새 상황</button>
+						</div>
+					</div>
+					<details class="card">
+						<summary>설정</summary>
+						<div class="row">
+							<label>호출 간격(초)</label>
+							<input id="gmin" type="number" value="5" />
+							<input id="gmax" type="number" value="15" />
+						</div>
+						<div class="row">
+							<select id="dmode" hidden>
+								<option value="rule"></option>
+							</select>
+							<span class="mut">가상 탑승자는 하차하지 않아요</span>
+							<label>배속</label>
+							<select id="mult">
+								<option>1</option>
+								<option>2</option>
+								<option selected>4</option>
+								<option>8</option>
+								<option>16</option>
+							</select>
+						</div>
+						<div class="row">
+							<label>층간 순항(초)</label>
+							<input id="fT" type="number" step="0.1" value="6.5" />
+							<label>정차(초)</label>
+							<input id="sT" type="number" step="0.1" value="5" />
+							<label>가속·감속(초)</label>
+							<input id="aT" type="number" step="0.1" value="2" />
+						</div>
+						<div class="row">
+							<label>계단 오름(초/층)</label>
+							<input id="stU" type="number" step="0.1" value="10" />
+							<label>내림(초/층)</label>
+							<input id="stD" type="number" step="0.1" value="6" />
+						</div>
+					</details>
+					<details class="card">
+						<summary>로그 · 모형 연결 규약</summary>
+						<div class="row rowForLog">
+							<button class="s" id="home">HOME (1층 영점)</button>
+							<span id="cst" class="mut">시리얼 미연결</span>
+							<button class="s" id="resetLog">로그 초기화</span>
+						</div>
+						<div class="mut">
+							115200bps, 줄바꿈 종료. PC→아두이노:
+							<code>GO n</code>
+							,
+							<code>LED m</code>
+							(1F▲, 2F▲, 2F▼, 3F▲, 3F▼, 4F▲, 4F▼, 5F▼ 순서 비트마스크),
+							<code>STAIR 출발 도착 ms</code>
+							,
+							<code>HOME</code>
+							/ 아두이노→PC:
+							<code>ARR n</code>
+							,
+							<code>HOMED</code>
+							. Web Serial은 Chrome/Edge에서만 되며, 파일을 저장해 직접 열어야
+							해요.
+						</div>
+						<div id="log"></div>
+					</details>
+				</div>
+			</div>
+		</div>
+		<script src="./index.js"></script>
+	</body>
+</html>
