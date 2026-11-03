@@ -1,5 +1,7 @@
 const $ = (id) => document.getElementById(id);
 const P = { fT: 6.5, sT: 5, stU: 10, stD: 6, aT: 2, mult: 4 };
+// 모형이 연결돼 있을 때의 배속 상한 (모터 한계에 따라 제작 후 측정해서 조정)
+const MODEL_MULT_MAX = 1.5;
 const stairT = (a, b) => Math.abs(b - a) * (b > a ? P.stU : P.stD);
 
 function rng(a) {
@@ -23,6 +25,10 @@ let S,
 	last = performance.now(),
 	lastGo = -1,
 	lastMask = -1,
+	lastCfg = "",
+	cfgReq = 0,
+	modelReady = false,
+	waitFloor = 0,
 	selF = 1,
 	selT = 4;
 
@@ -32,13 +38,19 @@ const gap = () => {
 	return a + rand() * (b - a);
 };
 
+// 이동 시간·배속(fT, aT, mult)은 시간이 멈췄거나 정차 중일 때만 반영한다.
+// 이동 중에 바꾸면 시뮬레이션은 바로 빨라지는데 모형은 그대로라 어긋나기 때문.
 const readP = () => {
-	P.fT = +$("fT").value || 6.5;
 	P.sT = +$("sT").value || 5;
 	P.stU = +$("stU").value || 10;
 	P.stD = +$("stD").value || 6;
-	P.aT = +$("aT").value || 2;
-	P.mult = +$("mult").value || 4;
+	if (!running || S.stop > 0 || S.dir == 0) {
+		P.fT = +$("fT").value || 6.5;
+		P.aT = +$("aT").value || 2;
+		let m = +$("mult").value || 4;
+		if (serial) m = Math.min(m, MODEL_MULT_MAX);
+		P.mult = m;
+	}
 };
 
 function addLog(m) {
@@ -236,7 +248,8 @@ function scenario() {
 	if (f == 4) d = -1;
 	S.pos = f;
 	S.dir = d;
-	S.ph = "cruise";
+	// 모형은 정지 상태에서 출발하므로 시뮬레이션도 정지(rest)에서 가속부터 시작한다
+	S.ph = "rest";
 	S.pt = 0;
 	S.chk = null;
 	KEYS.forEach(([cf, cd]) => {
@@ -251,7 +264,7 @@ function scenario() {
 		addCall(S, k, kd, 0, false);
 	}
 	S.occ = Math.floor(rand() * 4);
-	tx("GO " + (f + 1));
+	goModel(f + 1);
 	addLog(
 		`새 상황: 엘리베이터 ${f + 1}층 ${d > 0 ? "상승" : "하강"} 중 · 호출 ${S.calls.map((c) => c.f + 1 + (c.d > 0 ? "▲" : "▼")).join(" ") || "없음"}`,
 	);
@@ -273,11 +286,11 @@ function moveCar(f) {
 	if (running) return;
 	S.pos = f;
 	S.stop = 0;
-	S.ph = "cruise";
+	S.ph = "rest";
 	S.chk = null;
 	S.dir = f == 0 ? 1 : f == 4 ? -1 : S.dir || 1;
 	lastGo = -1;
-	tx("GO " + (f + 1));
+	goModel(f + 1);
 	addLog(`엘리베이터 ${f + 1}층으로 이동`);
 }
 
@@ -363,26 +376,98 @@ const mask = () =>
 			m | (S.calls.some((c) => c.f == f && c.d == d) ? 1 << i : 0),
 		0,
 	);
+
+// 시뮬레이션이 지금 상태에서 "이번에 실제로 멈출 층"(0~4). 없으면 null.
+// 새 호출이 들어오면 값이 바뀔 수 있어서 sync()가 바뀔 때마다 다시 보낸다.
+function stopPlan(s) {
+	if (s.ph == "dec") return s.tgt;
+	const nx =
+		s.dir > 0 ? Math.floor(s.pos + 1e-9) + 1 : Math.ceil(s.pos - 1e-9) - 1;
+	for (let g = nx; g >= 0 && g <= 4; g += s.dir) {
+		// 이미 통과하기로 판단한 다음 층(chk)은 건너뜀 (tick의 판단과 일치시키기)
+		if (g == nx && s.chk === nx) continue;
+		if (shouldStop(s, g, s.dir) || !ahead(s, g, s.dir)) return g;
+	}
+	return null;
+}
+
+// 모형에게 f1층(1~5)으로 가라고 지시. 시간이 멈춘 상태면 도착(ARR)까지 시작 버튼을 막는다.
+function goModel(f1) {
+	if (!serial || !modelReady) return;
+	tx("GO " + f1);
+	lastGo = f1 - 1;
+	if (!running) waitFloor = f1;
+}
+
+// 층당·가속 시간을 "실제 시간(ms)"으로 환산해서 전송 (값이 바뀔 때만)
+function sendCfg() {
+	const fl = Math.round((P.fT / P.mult) * 1000),
+		ac = Math.round((P.aT / P.mult) * 1000),
+		t = fl + " " + ac;
+	if (t === lastCfg) return;
+	tx("CFG " + t);
+	lastCfg = t;
+	cfgReq = fl;
+}
+
 function sync() {
-	if (!serial) return;
+	if (!serial || !modelReady) return;
 	const m = mask();
 	if (m !== lastMask) {
 		tx("LED " + m);
 		lastMask = m;
 	}
+	sendCfg();
 	if (running && S.dir && !S.stop) {
-		const nx =
-			S.dir > 0 ? Math.floor(S.pos + 1e-9) + 1 : Math.ceil(S.pos - 1e-9) - 1;
-		if (nx !== lastGo) {
-			tx("GO " + (nx + 1));
-			lastGo = nx;
-		}
+		const g = stopPlan(S);
+		if (g !== null && g !== lastGo) goModel(g + 1);
+	} else if (running) lastGo = -1;
+}
+
+// 아두이노에서 온 한 줄 처리
+function handleMsg(line) {
+	addLog("← " + line);
+	const [cmd, a] = line.split(" ");
+	if (cmd == "READY" || cmd == "HOMED") {
+		// 원점을 잡았으니 모형은 1층에 있다: 설정을 보내고 시뮬레이션 위치로 보낸다
+		modelReady = true;
+		lastCfg = "";
+		lastMask = -1;
+		sendCfg();
+		goModel(Math.round(S.pos) + 1);
+	} else if (cmd == "ARR") {
+		if (+a == waitFloor) waitFloor = 0;
+	} else if (cmd == "CFGACK") {
+		if (cfgReq && +a > cfgReq * 1.05)
+			addLog(
+				`⚠ 모형이 요청 속도를 못 따라가요 (요청 ${cfgReq}ms/층, 가능 ${a}ms/층). 배속 상한을 낮추세요.`,
+			);
+	} else if (cmd == "ERR") {
+		if (a == "NOT_HOMED") modelReady = false;
 	}
+}
+
+const connLabel = $("portConnector").textContent;
+
+function onDisconnect() {
+	if (!serial) return;
+	serial = null;
+	modelReady = false;
+	waitFloor = 0;
+	lastGo = -1;
+	lastMask = -1;
+	lastCfg = "";
+	$("portConnector").textContent = connLabel;
+	$("portConnector").classList.remove("ok");
+	$("portConnectStatus").textContent = "연결 끊김";
+	addLog("시리얼 연결 종료");
 }
 
 // 포트와 연결하는 버튼(portConnector) 클릭 시 포트 연결 요청
 // 연결 상태를 portConnectStatus에 출력(연결 중, 연결 실패, 미지원)
 $("portConnector").onclick = async () => {
+	if (serial) return; // 이미 연결됨
+
 	// 브라우저가 serial을 지원하지 않는 경우
 	if (!("serial" in navigator)) {
 		$("portConnectStatus").textContent =
@@ -399,30 +484,54 @@ $("portConnector").onclick = async () => {
 		enc.readable.pipeTo(p.writable);
 		serial = enc.writable.getWriter();
 
+		// 연결 직후에는 보드가 원점을 잡는 중이므로 READY를 받기 전까지 명령을 보내지 않는다
+		modelReady = false;
+		waitFloor = 0;
+		lastGo = -1;
+		lastMask = -1;
+		lastCfg = "";
+
 		// 연결이 되면 portConnector에서 연결이 완료됨을 직접 표시
 		$("portConnector").textContent = "모형 연결됨";
 		$("portConnector").classList.add("ok");
-		$("portConnectStatus").textContent = "연결됨 · 명령 전송 중";
+		$("portConnectStatus").textContent = "연결됨 · 모형 준비 중";
 		addLog("시리얼 연결");
+
+		if (+$("mult").value > MODEL_MULT_MAX) {
+			$("mult").value = MODEL_MULT_MAX;
+			addLog(`모형 연결 중에는 배속 상한이 ${MODEL_MULT_MAX}배예요`);
+		}
+
+		// 보드가 리셋되지 않는 경우를 대비해 READY가 없으면 상태를 물어본다
+		setTimeout(() => {
+			if (serial && !modelReady) tx("PING");
+		}, 2500);
 
 		const rd = p.readable.pipeThrough(new TextDecoderStream()).getReader();
 		let buf = ""; // 아두이노로부터 받은 데이터를 전송 받은 buffer
 
-		// 이후 '\n'에 맞게 buffer를 변경하며 받은 데이터를 log에 출력
+		// 이후 '\n'에 맞게 buffer를 변경하며 받은 데이터를 처리
 		(async () => {
-			for (;;) {
-				const { value, done } = await rd.read();
+			try {
+				for (;;) {
+					const { value, done } = await rd.read();
 
-				if (done) break;
+					if (done) break;
 
-				buf += value;
+					buf += value;
 
-				let i;
+					let i;
 
-				while ((i = buf.indexOf("\n")) >= 0) {
-					addLog("← " + buf.slice(0, i).trim());
-					buf = buf.slice(i + 1);
+					while ((i = buf.indexOf("\n")) >= 0) {
+						const line = buf.slice(0, i).trim();
+						buf = buf.slice(i + 1);
+						if (line) handleMsg(line);
+					}
 				}
+			} catch (e) {
+				addLog("수신 오류: " + (e.message || e));
+			} finally {
+				onDisconnect();
 			}
 		})();
 	} catch (e) {
@@ -433,6 +542,15 @@ $("portConnector").onclick = async () => {
 };
 
 $("home").onclick = () => {
+	if (!serial) {
+		addLog("모형이 연결되어 있지 않아요");
+		return;
+	}
+	if (running) {
+		addLog("시간이 멈춘 상태에서만 HOME을 보낼 수 있어요");
+		return;
+	}
+	modelReady = false; // HOMED를 받으면 다시 준비 완료
 	tx("HOME");
 	addLog("→ HOME");
 };
@@ -461,6 +579,13 @@ seg("sd", 0, (i) => (selT = i));
 paint();
 $("go").onclick = () => {
 	readP();
+	// 모형이 아직 준비 중이거나 시작 층으로 이동 중이면 시작하지 않는다
+	if (serial && (!modelReady || waitFloor)) {
+		$("res").className = "mut";
+		$("res").textContent =
+			"모형이 준비·이동 중이에요. 도착하면 다시 눌러 주세요.";
+		return;
+	}
 	const from = selF,
 		to = selT;
 	if (from == to) {
@@ -496,7 +621,9 @@ $("go").onclick = () => {
 		ed: false,
 		St,
 	};
-	tx(`STAIR ${from + 1} ${to + 1} ${Math.round((St * 1000) / P.mult)}`);
+	// 계단은 모형이 없으므로 아두이노에는 아무것도 보내지 않는다.
+	// 정차 층은 sync()가 이동이 시작되는 프레임에 알아서 보낸다.
+	lastGo = -1;
 	addLog(`경주 시작 ${from + 1}층→${to + 1}층`);
 };
 
@@ -506,6 +633,14 @@ $("auto").onchange = () => {
 };
 
 $("scn").onclick = scenario;
+
+// 모형 연결 중에는 배속 상한을 넘기지 못하게 한다
+$("mult").addEventListener("change", () => {
+	if (serial && +$("mult").value > MODEL_MULT_MAX) {
+		$("mult").value = MODEL_MULT_MAX;
+		addLog(`모형 연결 중에는 배속 상한이 ${MODEL_MULT_MAX}배예요`);
+	}
+});
 
 // ---- 화면 ----
 const strip = $("strip"),
