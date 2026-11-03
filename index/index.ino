@@ -61,6 +61,7 @@ long logicalPos() { return UP_SIGN * stepper.currentPosition(); } // 1층 = 0, �
 void moveToLogical(long p) { stepper.moveTo(UP_SIGN * p); }
 bool limitPressed() { return digitalRead(LIMIT_PIN) == LOW; }
 
+// 현재 위치해 있는 층을 구하는 함수
 int currentFloor()
 {
 	int f = (int)((logicalPos() + stepsPerFloor / 2) / stepsPerFloor) + 1;
@@ -256,6 +257,7 @@ void handleLine(char *s)
 	}
 }
 
+// 시리얼로 받은 메시지를 버퍼로 처리
 void readSerial()
 {
 	while (Serial.available())

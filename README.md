@@ -1,0 +1,21 @@
+# H1 아두이노 및 수송신 메시지 관련 정보
+
+- 엘리베이터 모형 (Arduino + 28BYJ-48 + ULN2003 + 1층 리밋 스위치)
+- 필요 라이브러리: AccelStepper (Arduino IDE 라이브러리 매니저에서 설치)
+- 스케치 폴더 이름은 파일 이름과 같게(elevator/elevator.ino) 두세요.
+-
+- 통신: 115200 baud, 줄바꿈('\n') 단위 텍스트, 층 번호는 1~5
+-
+- PC -> 보드
+- CFG <층당ms> <가속ms> 이동 속도 설정. 이동 중이면 정차 후에 적용
+- GO <층> 해당 층에서 멈추도록 이동. 이동 중에도 다시 보낼 수 있음
+- HOME 리밋 스위치로 원점(1층) 다시 잡기
+- LED <마스크> 호출 LED (USE_LEDS 1일 때만 동작)
+- PING 상태 확인 (원점이 잡혀 있으면 READY)
+-
+- 보드 -> PC
+- READY 부팅 후 원점 잡기 완료
+- HOMED HOME 명령 후 원점 잡기 완료
+- ARR <층> 도착 (정지)
+- CFGACK <층당ms> 실제 적용된 층당 이동 시간 (모터 한계로 요청보다 느릴 수 있음)
+- ERR <사유> NOT_HOMED, BAD_FLOOR, BAD_ARG, UNKNOWN, LIMIT, HOME_FAIL
