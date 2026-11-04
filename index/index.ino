@@ -72,6 +72,7 @@ int currentFloor()
 	return constrain(f, 1, FLOORS);
 }
 
+// 도착 메시지와 도착한 층을 전달
 void sendArr()
 {
 	Serial.print(F("ARR "));
@@ -190,6 +191,7 @@ void onStopped()
 {
 	wasMoving = false;
 	
+	// 이어서 갈 층이 있다면 pendingFloor(이후 0으로 리셋) 층으로 이동
 	if (pendingFloor)
 	{
 		int f = pendingFloor;
@@ -197,8 +199,12 @@ void onStopped()
 		requestMove(f);
 		return;
 	}
+
+	// CFG가 있다면 적용
 	if (cfgPending)
 		applyCfg(true);
+	
+	// PC 시뮬레이션에 메시지 전달
 	sendArr();
 	if (RELEASE_COILS_WHEN_IDLE)
 		stepper.disableOutputs();
@@ -318,8 +324,9 @@ void loop()
 	stepper.run();
 	bool moving = stepper.isRunning(); // 움직이면 true, 그렇지 않으면 false
 
-	// 1층 아래에서 스위치가 눌리면 위치가 틀어진 것: 멈추고 원점 다시 잡기
-	if (homed && moving && limitPressed() && logicalPos() < -LIMIT_MARGIN_STEPS)
+	// 리밋 스위치가 눌려져 있는데도 원점 근처가 아닌 경우
+	// 즉, 원점에 있어야하는데 그렇지 않아 오차 범위를 벗어난 경우
+	if (limitPressed() && moving && logicalPos() > -HOME_OFFSET_STEPS + LIMIT_MARGIN_STEPS)
 	{
 		stepper.setCurrentPosition(stepper.currentPosition());
 		Serial.println(F("ERR LIMIT"));
