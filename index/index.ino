@@ -1,7 +1,5 @@
 /*
  * 엘리베이터 모형 (Arduino + 28BYJ-48 + ULN2003 + 1층 리밋 스위치)
- * 필요 라이브러리: AccelStepper (Arduino IDE 라이브러리 매니저에서 설치)
- * 스케치 폴더 이름은 파일 이름과 같게(elevator/elevator.ino) 두세요.
  *
  * 통신: 115200 baud, 줄바꿈('\n') 단위 텍스트, 층 번호는 1~5
  *
@@ -23,19 +21,25 @@
 #include <AccelStepper.h>
 
 // ================= 제작 후 조정할 상수 =================
-const int FLOORS = 5;
-const float FLOOR_HEIGHT_MM = 100.0;   // 층 높이
-const float SPOOL_DIAMETER_MM = 40.0;  // 줄을 감는 릴 지름 (미정, 정해지면 수정)
-const float STEPS_PER_REV = 4076.0;	   // 28BYJ-48 하프스텝 기준 (기어비 63.68395 x 64)
-const float MAX_STEPS_PER_SEC = 700.0; // 모터가 안정적으로 낼 수 있는 속도 (측정 후 수정)
-const int UP_SIGN = 1;				   // 위로 올라갈 때 스텝 부호 (반대로 움직이면 -1)
+
+const int FLOORS = 5;						// 층수
+const float FLOOR_HEIGHT_MM = 100.0; 		// 층 높이[단위: mm]
+
+// 줄을 감는 원통 지름[단위: mm] (미정, 정해지면 수정. 현재는 400mm 기준 정함.)
+// 지름의 값은 엘리베이터의 이동 거리에 비례하므로 이에 맞추면 된다.
+// 만약 최대 실제 이동거리(1F -> 5F)가 450mm면 이 값에 450/400을 곱하면 된다.
+const float SPOOL_DIAMETER_MM = 40.0;
+
+const float STEPS_PER_REV = 4076.0;			// 28BYJ-48 하프스텝 기준 (기어비 63.68395 x 64)
+const float MAX_STEPS_PER_SEC = 700.0;		// 모터가 안정적으로 낼 수 있는 속도 (측정 후 수정)
+const int UP_SIGN = 1;						// 위로 올라갈 때 스텝 부호 (반대로 움직이면 -1)
 
 const long HOME_OFFSET_STEPS = 0;			// 스위치가 눌리는 위치에서 1층 위치까지 올라가는 스텝 수
 const float HOME_SPEED = 300.0;				// 원점 잡을 때 속도 (steps/s)
 const long LIMIT_MARGIN_STEPS = 30;			// 1층 아래로 이 이상 내려가 스위치가 눌리면 이상으로 판단
 const bool RELEASE_COILS_WHEN_IDLE = false; // 정지 시 코일 전류 차단 (발열 줄임, 카가 내려갈 수 있음)
 
-const uint8_t LIMIT_PIN = 2; // 한쪽은 이 핀, 다른 쪽은 GND (INPUT_PULLUP)
+const uint8_t LIMIT_PIN = 2; 				// 한쪽은 이 핀, 다른 쪽은 GND (INPUT_PULLUP)
 // ULN2003 IN1~IN4 = 8, 9, 10, 11 (AccelStepper는 IN1, IN3, IN2, IN4 순서로 넘김)
 AccelStepper stepper(AccelStepper::HALF4WIRE, 8, 10, 9, 11);
 
@@ -57,9 +61,9 @@ float curAccel = 100.0;
 char lineBuf[32];
 uint8_t lineLen = 0;
 
-long logicalPos() { return UP_SIGN * stepper.currentPosition(); } // 1층 = 0, 위쪽이 +
+long logicalPos() { return UP_SIGN * stepper.currentPosition(); } // 이론상 위치 값. 1층을 0으로 잡고, 위로는 +, 아래는 -
 void moveToLogical(long p) { stepper.moveTo(UP_SIGN * p); }
-bool limitPressed() { return digitalRead(LIMIT_PIN) == LOW; }
+bool limitPressed() { return digitalRead(LIMIT_PIN) == LOW; } // 원점에 도달했는가? (리밋 스위치가 눌렸는가?)
 
 // 현재 위치해 있는 층을 구하는 함수
 int currentFloor()
@@ -105,19 +109,27 @@ bool runUntil(float speed, bool wantPressed, long maxSteps)
 	return true;
 }
 
+// 원점을 잡아 1층으로 이동하는 메소드. 성공적으로 진행하면 true, 아니면 false를 반환함
 bool doHome()
 {
 	homed = false;
 	pendingFloor = 0;
 	wasMoving = false;
+
 	long maxSteps = (long)(FLOORS + 1) * stepsPerFloor;
 	float up = UP_SIGN * HOME_SPEED;
+
 	stepper.setMaxSpeed(HOME_SPEED);
 	stepper.setAcceleration(500);
+
+	// 리밋 스위치까지 이동하여 원점 잡기
 	if (limitPressed() && !runUntil(up, false, maxSteps))
 		return false; // 눌려 있으면 위로 풀기
+
 	if (!runUntil(-up, true, maxSteps))
 		return false; // 내려가며 스위치 감지
+	
+	// 이론상 현 위치를 0으로 잡고, 1층으로 이동
 	stepper.setCurrentPosition(0);
 	moveToLogical(HOME_OFFSET_STEPS); // 1층 위치까지 올라가기
 	stepper.runToPosition();
@@ -173,9 +185,11 @@ void requestMove(int f)
 	pendingFloor = f;
 }
 
+// 이동 후 정지했을 때
 void onStopped()
 {
 	wasMoving = false;
+	
 	if (pendingFloor)
 	{
 		int f = pendingFloor;
@@ -287,10 +301,13 @@ void setup()
 {
 	Serial.begin(115200);
 	pinMode(LIMIT_PIN, INPUT_PULLUP);
+
+	// LED를 사용한다면 순서대로 핀번호 지정
 #if USE_LEDS
 	for (uint8_t i = 0; i < 8; i++)
 		pinMode(LED_PINS[i], OUTPUT);
 #endif
+
 	stepsPerFloor = lround(FLOOR_HEIGHT_MM / (PI * SPOOL_DIAMETER_MM) * STEPS_PER_REV);
 	homeAndReport(true);
 }
@@ -299,7 +316,7 @@ void loop()
 {
 	readSerial();
 	stepper.run();
-	bool moving = stepper.isRunning();
+	bool moving = stepper.isRunning(); // 움직이면 true, 그렇지 않으면 false
 
 	// 1층 아래에서 스위치가 눌리면 위치가 틀어진 것: 멈추고 원점 다시 잡기
 	if (homed && moving && limitPressed() && logicalPos() < -LIMIT_MARGIN_STEPS)
