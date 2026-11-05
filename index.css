@@ -53,6 +53,12 @@ header {
 	align-items: center;
 	margin-bottom: 10px;
 }
+#githubLink {
+	text-decoration: underline;
+	color: white;
+	font-weight: bold;
+	font-size: small;
+}
 h1 {
 	font-size: 18px;
 	margin: 0;
