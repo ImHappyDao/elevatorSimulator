@@ -39,14 +39,14 @@ const float HOME_SPEED = 300.0;				// 원점 잡을 때 속도 (steps/s)
 const long LIMIT_MARGIN_STEPS = 30;			// 1층 아래로 이 이상 내려가 스위치가 눌리면 이상으로 판단
 const bool RELEASE_COILS_WHEN_IDLE = false; // 정지 시 코일 전류 차단 (발열 줄임, 카가 내려갈 수 있음)
 
-const uint8_t LIMIT_PIN = 2; 				// 한쪽은 이 핀, 다른 쪽은 GND (INPUT_PULLUP)
+const uint8_t LIMIT_PIN = A2; 				// 한쪽은 이 핀, 다른 쪽은 GND (INPUT_PULLUP)
 // ULN2003 IN1~IN4 = 8, 9, 10, 11 (AccelStepper는 IN1, IN3, IN2, IN4 순서로 넘김)
 AccelStepper stepper(AccelStepper::HALF4WIRE, 8, 10, 9, 11);
 
 // 호출 LED를 달면 USE_LEDS를 1로. 순서: 1▲ 2▲ 2▼ 3▲ 3▼ 4▲ 4▼ 5▼
 #define USE_LEDS 0
 #if USE_LEDS
-const uint8_t LED_PINS[8] = {A0, A1, A2, A3, A4, A5, 3, 4};
+const uint8_t LED_PINS[8] = {2, 3, 4, 5, 6, 7, A0, A1};
 #endif
 // ======================================================
 
@@ -306,6 +306,7 @@ void readSerial()
 void setup()
 {
 	Serial.begin(115200);
+	Serial.println(F("Connected Successfully"));
 	pinMode(LIMIT_PIN, INPUT_PULLUP);
 
 	// LED를 사용한다면 순서대로 핀번호 지정
