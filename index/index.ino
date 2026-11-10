@@ -113,6 +113,7 @@ bool runUntil(float speed, bool wantPressed, long maxSteps)
 // 원점을 잡아 1층으로 이동하는 메소드. 성공적으로 진행하면 true, 아니면 false를 반환함
 bool doHome()
 {
+	Serial.println("Trying to catch the home...");
 	homed = false;
 	pendingFloor = 0;
 	wasMoving = false;
