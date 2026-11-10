@@ -3,7 +3,9 @@
 
 // ---- 시리얼 ----
 const sendLine = (text) => {
-	if (serialWriter) serialWriter.write(text + "\n").catch(() => {});
+	if (!serialWriter) return;
+	addLog("→ " + text);
+	serialWriter.write(text + "\n").catch(() => {});
 };
 
 // 켜진 호출 버튼을 비트마스크로 만든다
