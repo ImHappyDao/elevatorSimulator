@@ -204,3 +204,24 @@ function requestHome() {
 function onSpeedMultChange() {
 	if (serialWriter) limitSpeedMultForModel();
 }
+
+function sendRawCommand() {
+	const input = byId("cmdInput"),
+		text = input.value.trim().toUpperCase(),
+		cmd = text.split(" ")[0];
+	if (!text) return;
+	if (!serialWriter) {
+		addLog("모형이 연결되어 있지 않아요");
+		return;
+	}
+	if (cmd == "HOME") {
+		requestHome(); // modelReady 처리 등을 그대로 사용
+	} else if (running && (cmd == "GO" || cmd == "CFG")) {
+		addLog("시뮬레이션이 도는 중에는 GO/CFG를 직접 보낼 수 없어요");
+		return;
+	} else {
+		sendLine(text);
+		addLog("→ " + text);
+	}
+	input.value = "";
+}

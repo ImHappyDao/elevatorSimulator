@@ -16,6 +16,11 @@ byId("speedMult").addEventListener("change", onSpeedMultChange);
 
 buildFloorStrip();
 
+byId("cmdSend").onclick = sendRawCommand;
+byId("cmdInput").addEventListener("keydown", (event) => {
+	if (event.key == "Enter") sendRawCommand();
+});
+
 initSimulation();
 (function frame(now) {
 	const dt = Math.min(0.1, (now - lastFrameTime) / 1000);
