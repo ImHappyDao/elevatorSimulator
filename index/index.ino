@@ -39,7 +39,7 @@ const float HOME_SPEED = 300.0;				// 원점 잡을 때 속도 (steps/s)
 const long LIMIT_MARGIN_STEPS = 30;			// 1층 아래로 이 이상 내려가 스위치가 눌리면 이상으로 판단
 const bool RELEASE_COILS_WHEN_IDLE = false; // 정지 시 코일 전류 차단 (발열 줄임, 카가 내려갈 수 있음)
 
-const uint8_t LIMIT_PIN = A2; 				// 한쪽은 이 핀, 다른 쪽은 GND (INPUT_PULLUP)
+const uint8_t LIMIT_PIN = A2; 				// C는 이 핀(A2)에, NO는 GND (INPUT_PULLUP / KW-10R 기준)
 // ULN2003 IN1~IN4 = 8, 9, 10, 11 (AccelStepper는 IN1, IN3, IN2, IN4 순서로 넘김)
 AccelStepper stepper(AccelStepper::HALF4WIRE, 8, 10, 9, 11);
 
