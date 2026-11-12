@@ -23,12 +23,12 @@
 // ================= 제작 후 조정할 상수 =================
 
 const int FLOORS = 5;						// 층수
-const float FLOOR_HEIGHT_MM = 100.0; 		// 층 높이[단위: mm]
+const float FLOOR_HEIGHT_MM = 75; 		// 층 높이[단위: mm]
 
 // 줄을 감는 원통 지름[단위: mm] (미정, 정해지면 수정. 현재는 400mm 기준 정함.)
 // 지름의 값은 엘리베이터의 이동 거리에 비례하므로 이에 맞추면 된다.
 // 만약 최대 실제 이동거리(1F -> 5F)가 450mm면 이 값에 450/400을 곱하면 된다.
-const float SPOOL_DIAMETER_MM = 40.0;
+const float SPOOL_DIAMETER_MM = 10.0;
 
 const float STEPS_PER_REV = 4076.0;			// 28BYJ-48 하프스텝 기준 (기어비 63.68395 x 64)
 const float MAX_STEPS_PER_SEC = 700.0;		// 모터가 안정적으로 낼 수 있는 속도 (측정 후 수정)
